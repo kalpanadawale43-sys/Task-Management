@@ -127,8 +127,12 @@ export default function Settings() {
   const handleCustomSoundUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const url = URL.createObjectURL(file);
-      handleNotificationSoundChange('custom', url);
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const dataUrl = event.target?.result as string;
+        handleNotificationSoundChange('custom', dataUrl);
+      };
+      reader.readAsDataURL(file);
     }
   };
 
