@@ -10,7 +10,10 @@ import {
   Trash2, 
   Upload,
   Save,
-  Volume2
+  Volume2,
+  VolumeX,
+  Pause,
+  Play
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -19,6 +22,8 @@ export default function Settings() {
   const { user, updateUser, deleteAccount } = useAuth();
   const [localSettings, setLocalSettings] = useState(settings);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isPlayingSound, setIsPlayingSound] = useState(false);
+  const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
   const [newStartDate, setNewStartDate] = useState(
     user?.startDate ? format(new Date(user.startDate), 'yyyy-MM-dd') : ''
   );
@@ -50,6 +55,57 @@ export default function Settings() {
     }));
   };
 
+  const removeCustomSound = () => {
+    if (window.confirm('Are you sure you want to remove the custom notification sound?')) {
+      handleNotificationSoundChange('custom', '');
+      // If custom sound was being used, switch to default
+      if (!localSettings.notificationSounds.default) {
+        handleNotificationSoundChange('default', true);
+      }
+    }
+  };
+
+  const playTestSound = () => {
+    if (isPlayingSound && currentAudio) {
+      // Pause current sound
+      currentAudio.pause();
+      currentAudio.currentTime = 0;
+      setIsPlayingSound(false);
+      setCurrentAudio(null);
+      return;
+    }
+
+    let audio: HTMLAudioElement;
+    
+    if (localSettings.notificationSounds.custom && !localSettings.notificationSounds.default) {
+      // Play custom sound
+      audio = new Audio(localSettings.notificationSounds.custom);
+    } else {
+      // Play default sound
+      audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+Dyvmgo=');
+    }
+
+    setCurrentAudio(audio);
+    setIsPlayingSound(true);
+
+    audio.addEventListener('ended', () => {
+      setIsPlayingSound(false);
+      setCurrentAudio(null);
+    });
+
+    audio.addEventListener('error', () => {
+      setIsPlayingSound(false);
+      setCurrentAudio(null);
+      alert('Error playing sound. Please check your audio file.');
+    });
+
+    audio.play().catch((error) => {
+      console.error('Error playing sound:', error);
+      setIsPlayingSound(false);
+      setCurrentAudio(null);
+      alert('Error playing sound. Please check your audio settings.');
+    });
+  };
   const saveSettings = () => {
     updateSettings(localSettings);
     alert('Settings saved successfully!');
@@ -200,24 +256,111 @@ export default function Settings() {
             <h3 className="text-lg font-medium text-gray-900 mb-4">Notification Sounds</h3>
             
             <div className="space-y-4">
-              <div className="flex items-center">
-                <input
-                  id="defaultSound"
-                  type="checkbox"
-                  checked={localSettings.notificationSounds.default}
-                  onChange={(e) => handleNotificationSoundChange('default', e.target.checked)}
-                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
-                />
-                <label htmlFor="defaultSound" className="ml-2 text-sm text-gray-700">
-                  Use default notification sound
+              {/* Sound Type Selection */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Choose Notification Sound
                 </label>
+                <div className="space-y-3">
+                  <div className="flex items-center">
+                    <input
+                      id="useDefaultSound"
+                      type="radio"
+                      name="soundType"
+                      checked={localSettings.notificationSounds.default}
+                      onChange={() => {
+                        handleNotificationSoundChange('default', true);
+                      }}
+                      className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-2 focus:ring-blue-500"
+                    />
+                    <label htmlFor="useDefaultSound" className="ml-2 text-sm text-gray-700">
+                      Use default notification sound
+                    </label>
+                  </div>
+                  
+                  <div className="flex items-center">
+                    <input
+                      id="useCustomSound"
+                      type="radio"
+                      name="soundType"
+                      checked={!localSettings.notificationSounds.default && !!localSettings.notificationSounds.custom}
+                      onChange={() => {
+                        if (localSettings.notificationSounds.custom) {
+                          handleNotificationSoundChange('default', false);
+                        } else {
+                          alert('Please upload a custom sound first.');
+                        }
+                      }}
+                      disabled={!localSettings.notificationSounds.custom}
+                      className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                    />
+                    <label htmlFor="useCustomSound" className={`ml-2 text-sm ${!localSettings.notificationSounds.custom ? 'text-gray-400' : 'text-gray-700'}`}>
+                      Use custom notification sound
+                      {!localSettings.notificationSounds.custom && ' (upload required)'}
+                    </label>
+                  </div>
+                </div>
               </div>
 
+              {/* Custom Sound Upload and Management */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Custom Notification Sound
                 </label>
-                <div className="flex items-center space-x-3">
+                
+                {localSettings.notificationSounds.custom ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                      <div className="flex items-center space-x-2">
+                        <Volume2 className="w-4 h-4 text-gray-600" />
+                        <span className="text-sm text-gray-700">Custom sound uploaded</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={playTestSound}
+                          className={`flex items-center px-3 py-1 text-white text-sm rounded-lg transition-colors duration-200 ${
+                            isPlayingSound 
+                              ? 'bg-orange-600 hover:bg-orange-700' 
+                              : 'bg-blue-600 hover:bg-blue-700'
+                          }`}
+                        >
+                          {isPlayingSound ? (
+                            <>
+                              <Pause className="w-4 h-4 mr-1" />
+                              Pause
+                            </>
+                          ) : (
+                            <>
+                              <Play className="w-4 h-4 mr-1" />
+                              Test
+                            </>
+                          )}
+                        </button>
+                        <button
+                          onClick={removeCustomSound}
+                          className="flex items-center px-3 py-1 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 transition-colors duration-200"
+                        >
+                          <Trash2 className="w-4 h-4 mr-1" />
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center space-x-3">
+                      <label className="flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 cursor-pointer transition-colors duration-200">
+                        <Upload className="w-4 h-4 mr-2" />
+                        Replace Sound
+                        <input
+                          type="file"
+                          accept="audio/*"
+                          onChange={handleCustomSoundUpload}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center space-x-3">
                   <label className="flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 cursor-pointer transition-colors duration-200">
                     <Upload className="w-4 h-4 mr-2" />
                     Upload Sound
@@ -228,23 +371,55 @@ export default function Settings() {
                       className="hidden"
                     />
                   </label>
-                  
-                  {localSettings.notificationSounds.custom && (
-                    <button
-                      onClick={() => {
-                        const audio = new Audio(localSettings.notificationSounds.custom);
-                        audio.play().catch(console.error);
-                      }}
-                      className="flex items-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
-                    >
-                      <Volume2 className="w-4 h-4 mr-2" />
-                      Test Sound
-                    </button>
-                  )}
-                </div>
+                  </div>
+                )}
+                
                 <p className="text-sm text-gray-600 mt-1">
                   Upload a custom audio file for notifications (MP3, WAV, etc.)
                 </p>
+                
+                {/* Test Default Sound Button */}
+                <div className="mt-3">
+                  <button
+                    onClick={() => {
+                      if (isPlayingSound && currentAudio) {
+                        currentAudio.pause();
+                        currentAudio.currentTime = 0;
+                        setIsPlayingSound(false);
+                        setCurrentAudio(null);
+                        return;
+                      }
+                      
+                      const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+Dyvmgo=');
+                      setCurrentAudio(audio);
+                      setIsPlayingSound(true);
+                      
+                      audio.addEventListener('ended', () => {
+                        setIsPlayingSound(false);
+                        setCurrentAudio(null);
+                      });
+                      
+                      audio.play().catch(console.error);
+                    }}
+                    className={`flex items-center px-3 py-2 text-white text-sm rounded-lg transition-colors duration-200 ${
+                      isPlayingSound 
+                        ? 'bg-orange-600 hover:bg-orange-700' 
+                        : 'bg-gray-600 hover:bg-gray-700'
+                    }`}
+                  >
+                    {isPlayingSound ? (
+                      <>
+                        <Pause className="w-4 h-4 mr-2" />
+                        Pause Default Sound
+                      </>
+                    ) : (
+                      <>
+                        <Volume2 className="w-4 h-4 mr-2" />
+                        Test Default Sound
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
