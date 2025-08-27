@@ -66,53 +66,15 @@ export default function Settings() {
   };
 
   const playTestSound = () => {
-    if (isPlayingSound && currentAudio) {
-      // Pause current sound
-      currentAudio.pause();
-      currentAudio.currentTime = 0;
-      setIsPlayingSound(false);
-      setCurrentAudio(null);
-      return;
+    if (localSettings.notificationSounds.custom) {
+      const audio = new Audio(localSettings.notificationSounds.custom);
+      audio.play().catch(console.error);
+    } else if (localSettings.notificationSounds.default) {
+      // Browser notification sound
+      new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+Dyvmgo=').play().catch(console.error);
     }
-
-    let audio: HTMLAudioElement;
-    
-    if (localSettings.notificationSounds.custom && !localSettings.notificationSounds.default) {
-      // Play custom sound
-      audio = new Audio(localSettings.notificationSounds.custom);
-    } else {
-      // Play default sound
-      audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+Dyvmgo=');
-    }
-
-    // Add load event listener to ensure audio is ready
-    audio.addEventListener('loadeddata', () => {
-      setCurrentAudio(audio);
-      setIsPlayingSound(true);
-      
-      audio.play().catch((error) => {
-        console.error('Error playing sound:', error);
-        setIsPlayingSound(false);
-        setCurrentAudio(null);
-        alert('Error playing sound. Please try a different audio file format (MP3, WAV recommended).');
-      });
-    });
-
-    audio.addEventListener('error', (e) => {
-      console.error('Audio loading error:', e);
-      setIsPlayingSound(false);
-      setCurrentAudio(null);
-      alert('Error loading audio file. Please check that the file is a valid audio format.');
-    });
-
-    audio.addEventListener('ended', () => {
-      setIsPlayingSound(false);
-      setCurrentAudio(null);
-    });
-
-    // Start loading the audio
-    audio.load();
   };
+
   const saveSettings = () => {
     updateSettings(localSettings);
     alert('Settings saved successfully!');
@@ -134,28 +96,10 @@ export default function Settings() {
   const handleCustomSoundUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Validate file type
-      const validTypes = ['audio/mpeg', 'audio/wav', 'audio/mp3', 'audio/ogg', 'audio/webm'];
-      if (!validTypes.includes(file.type)) {
-        alert('Please upload a valid audio file (MP3, WAV, OGG, or WebM).');
-        return;
-      }
-      
-      // Check file size (limit to 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        alert('Audio file is too large. Please choose a file smaller than 5MB.');
-        return;
-      }
-      
       const reader = new FileReader();
       reader.onload = (event) => {
         const dataUrl = event.target?.result as string;
         handleNotificationSoundChange('custom', dataUrl);
-        // Automatically switch to custom sound when uploaded
-        handleNotificationSoundChange('default', false);
-      };
-      reader.onerror = () => {
-        alert('Error reading the audio file. Please try again.');
       };
       reader.readAsDataURL(file);
     }
@@ -288,44 +232,19 @@ export default function Settings() {
               {/* Sound Type Selection */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-3">
-                  Choose Notification Sound
+                  Notification Sound Settings
                 </label>
                 <div className="space-y-3">
                   <div className="flex items-center">
                     <input
-                      id="useDefaultSound"
-                      type="radio"
-                      name="soundType"
+                      id="defaultSound"
+                      type="checkbox"
                       checked={localSettings.notificationSounds.default}
-                      onChange={() => {
-                        handleNotificationSoundChange('default', true);
-                      }}
+                      onChange={(e) => handleNotificationSoundChange('default', e.target.checked)}
                       className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-2 focus:ring-blue-500"
                     />
-                    <label htmlFor="useDefaultSound" className="ml-2 text-sm text-gray-700">
-                      Use default notification sound
-                    </label>
-                  </div>
-                  
-                  <div className="flex items-center">
-                    <input
-                      id="useCustomSound"
-                      type="radio"
-                      name="soundType"
-                      checked={!localSettings.notificationSounds.default && !!localSettings.notificationSounds.custom}
-                      onChange={() => {
-                        if (localSettings.notificationSounds.custom) {
-                          handleNotificationSoundChange('default', false);
-                        } else {
-                          alert('Please upload a custom sound first.');
-                        }
-                      }}
-                      disabled={!localSettings.notificationSounds.custom}
-                      className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-                    />
-                    <label htmlFor="useCustomSound" className={`ml-2 text-sm ${!localSettings.notificationSounds.custom ? 'text-gray-400' : 'text-gray-700'}`}>
-                      Use custom notification sound
-                      {!localSettings.notificationSounds.custom && ' (upload required)'}
+                    <label htmlFor="defaultSound" className="ml-2 text-sm text-gray-700">
+                      Enable default notification sound
                     </label>
                   </div>
                 </div>
@@ -347,23 +266,10 @@ export default function Settings() {
                       <div className="flex items-center space-x-2">
                         <button
                           onClick={playTestSound}
-                          className={`flex items-center px-3 py-1 text-white text-sm rounded-lg transition-colors duration-200 ${
-                            isPlayingSound 
-                              ? 'bg-orange-600 hover:bg-orange-700' 
-                              : 'bg-blue-600 hover:bg-blue-700'
-                          }`}
+                          className="flex items-center px-3 py-1 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors duration-200"
                         >
-                          {isPlayingSound ? (
-                            <>
-                              <Pause className="w-4 h-4 mr-1" />
-                              Pause
-                            </>
-                          ) : (
-                            <>
-                              <Play className="w-4 h-4 mr-1" />
-                              Test
-                            </>
-                          )}
+                          <Play className="w-4 h-4 mr-1" />
+                          Test
                         </button>
                         <button
                           onClick={removeCustomSound}
@@ -406,49 +312,6 @@ export default function Settings() {
                 <p className="text-sm text-gray-600 mt-1">
                   Upload a custom audio file for notifications (MP3, WAV, etc.)
                 </p>
-                
-                {/* Test Default Sound Button */}
-                <div className="mt-3">
-                  <button
-                    onClick={() => {
-                      if (isPlayingSound && currentAudio) {
-                        currentAudio.pause();
-                        currentAudio.currentTime = 0;
-                        setIsPlayingSound(false);
-                        setCurrentAudio(null);
-                        return;
-                      }
-                      
-                      const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+Dyvmgo=');
-                      setCurrentAudio(audio);
-                      setIsPlayingSound(true);
-                      
-                      audio.addEventListener('ended', () => {
-                        setIsPlayingSound(false);
-                        setCurrentAudio(null);
-                      });
-                      
-                      audio.play().catch(console.error);
-                    }}
-                    className={`flex items-center px-3 py-2 text-white text-sm rounded-lg transition-colors duration-200 ${
-                      isPlayingSound 
-                        ? 'bg-orange-600 hover:bg-orange-700' 
-                        : 'bg-gray-600 hover:bg-gray-700'
-                    }`}
-                  >
-                    {isPlayingSound ? (
-                      <>
-                        <Pause className="w-4 h-4 mr-2" />
-                        Pause Default Sound
-                      </>
-                    ) : (
-                      <>
-                        <Volume2 className="w-4 h-4 mr-2" />
-                        Test Default Sound
-                      </>
-                    )}
-                  </button>
-                </div>
               </div>
             </div>
           </div>
