@@ -77,7 +77,7 @@ export default function Settings() {
 
     let audio: HTMLAudioElement;
     
-    if (!localSettings.notificationSounds.default && localSettings.notificationSounds.custom) {
+    if (localSettings.notificationSounds.custom && !localSettings.notificationSounds.default) {
       // Play custom sound
       audio = new Audio(localSettings.notificationSounds.custom);
     } else {
@@ -85,26 +85,33 @@ export default function Settings() {
       audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+Dyvmgo=');
     }
 
-    setCurrentAudio(audio);
-    setIsPlayingSound(true);
+    // Add load event listener to ensure audio is ready
+    audio.addEventListener('loadeddata', () => {
+      setCurrentAudio(audio);
+      setIsPlayingSound(true);
+      
+      audio.play().catch((error) => {
+        console.error('Error playing sound:', error);
+        setIsPlayingSound(false);
+        setCurrentAudio(null);
+        alert('Error playing sound. Please try a different audio file format (MP3, WAV recommended).');
+      });
+    });
+
+    audio.addEventListener('error', (e) => {
+      console.error('Audio loading error:', e);
+      setIsPlayingSound(false);
+      setCurrentAudio(null);
+      alert('Error loading audio file. Please check that the file is a valid audio format.');
+    });
 
     audio.addEventListener('ended', () => {
       setIsPlayingSound(false);
       setCurrentAudio(null);
     });
 
-    audio.addEventListener('error', () => {
-      setIsPlayingSound(false);
-      setCurrentAudio(null);
-      alert('Error playing sound. Please check your audio file.');
-    });
-
-    audio.play().catch((error) => {
-      console.error('Error playing sound:', error);
-      setIsPlayingSound(false);
-      setCurrentAudio(null);
-      alert('Error playing sound. Please check your audio settings.');
-    });
+    // Start loading the audio
+    audio.load();
   };
   const saveSettings = () => {
     updateSettings(localSettings);
@@ -127,10 +134,28 @@ export default function Settings() {
   const handleCustomSoundUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Validate file type
+      const validTypes = ['audio/mpeg', 'audio/wav', 'audio/mp3', 'audio/ogg', 'audio/webm'];
+      if (!validTypes.includes(file.type)) {
+        alert('Please upload a valid audio file (MP3, WAV, OGG, or WebM).');
+        return;
+      }
+      
+      // Check file size (limit to 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('Audio file is too large. Please choose a file smaller than 5MB.');
+        return;
+      }
+      
       const reader = new FileReader();
       reader.onload = (event) => {
         const dataUrl = event.target?.result as string;
         handleNotificationSoundChange('custom', dataUrl);
+        // Automatically switch to custom sound when uploaded
+        handleNotificationSoundChange('default', false);
+      };
+      reader.onerror = () => {
+        alert('Error reading the audio file. Please try again.');
       };
       reader.readAsDataURL(file);
     }
