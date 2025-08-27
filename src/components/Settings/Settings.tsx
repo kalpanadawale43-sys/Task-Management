@@ -77,7 +77,7 @@ export default function Settings() {
 
     let audio: HTMLAudioElement;
     
-    if (localSettings.notificationSounds.custom && !localSettings.notificationSounds.default) {
+    if (!localSettings.notificationSounds.default && localSettings.notificationSounds.custom) {
       // Play custom sound
       audio = new Audio(localSettings.notificationSounds.custom);
     } else {
