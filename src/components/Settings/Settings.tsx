@@ -56,7 +56,33 @@ export default function Settings() {
   const playTestSound = () => {
     if (localSettings.notificationSounds.custom) {
       const audio = new Audio(localSettings.notificationSounds.custom);
+      audio.play();
+    }
+  };
+
+  const handleCustomSoundUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
     if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        handleNotificationSoundChange('custom', event.target?.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleStartDateChange = () => {
+    if (newStartDate) {
+      updateUser({ startDate: newStartDate });
+    }
+  };
+
+  const handleDeleteAccount = () => {
+    deleteAccount();
+  };
+
+  const saveSettings = () => {
+    updateSettings(localSettings);
   };
 
   return (
@@ -188,8 +214,20 @@ export default function Settings() {
                   id="defaultSound"
                   type="checkbox"
                   checked={localSettings.notificationSounds.default}
-                </div>
-              )}
+                  onChange={(e) => handleNotificationSoundChange('default', e.target.checked)}
+                  className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                />
+                <label htmlFor="defaultSound" className="ml-2 text-sm text-gray-700">
+                  Enable default notification sound
+                </label>
+                <button
+                  onClick={playTestSound}
+                  className="ml-3 flex items-center px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded hover:bg-blue-200 transition-colors duration-200"
+                >
+                  <Play className="w-3 h-3 mr-1" />
+                  Test
+                </button>
+              </div>
               
               <p className="text-sm text-gray-600 mt-1">
                 Upload a custom audio file for notifications (MP3, WAV, etc.)
@@ -237,13 +275,6 @@ export default function Settings() {
                     </label>
                   </div>
                 </div>
-              </div>
-
-              {/* Custom Sound Upload and Management */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Custom Notification Sound
-                </label>
               ) : (
                 <div className="flex items-center space-x-3">
                   <label className="flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 cursor-pointer transition-colors duration-200">
@@ -256,13 +287,12 @@ export default function Settings() {
                       className="hidden"
                     />
                   </label>
-                  </div>
-                )}
+                </div>
+              )}
                 
-                <p className="text-sm text-gray-600 mt-1">
-                  Upload a custom audio file for notifications (MP3, WAV, etc.)
-                </p>
-              </div>
+              <p className="text-sm text-gray-600 mt-1">
+                Upload a custom audio file for notifications (MP3, WAV, etc.)
+              </p>
             </div>
           </div>
         </div>
