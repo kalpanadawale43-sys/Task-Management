@@ -22,8 +22,6 @@ export default function Settings() {
   const { user, updateUser, deleteAccount } = useAuth();
   const [localSettings, setLocalSettings] = useState(settings);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [isPlayingSound, setIsPlayingSound] = useState(false);
-  const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
   const [newStartDate, setNewStartDate] = useState(
     user?.startDate ? format(new Date(user.startDate), 'yyyy-MM-dd') : ''
   );
@@ -55,54 +53,10 @@ export default function Settings() {
     }));
   };
 
-  const removeCustomSound = () => {
-    if (window.confirm('Are you sure you want to remove the custom notification sound?')) {
-      handleNotificationSoundChange('custom', '');
-      // If custom sound was being used, switch to default
-      if (!localSettings.notificationSounds.default) {
-        handleNotificationSoundChange('default', true);
-      }
-    }
-  };
-
   const playTestSound = () => {
     if (localSettings.notificationSounds.custom) {
       const audio = new Audio(localSettings.notificationSounds.custom);
-      audio.play().catch(console.error);
-    } else if (localSettings.notificationSounds.default) {
-      // Browser notification sound
-      new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+Dyvmgo=').play().catch(console.error);
-    }
-  };
-
-  const saveSettings = () => {
-    updateSettings(localSettings);
-    alert('Settings saved successfully!');
-  };
-
-  const handleStartDateChange = () => {
-    if (newStartDate && user) {
-      updateUser({ startDate: new Date(newStartDate) });
-      alert('Start date updated successfully!');
-    }
-  };
-
-  const handleDeleteAccount = () => {
-    if (window.confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
-      deleteAccount();
-    }
-  };
-
-  const handleCustomSoundUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const dataUrl = event.target?.result as string;
-        handleNotificationSoundChange('custom', dataUrl);
-      };
-      reader.readAsDataURL(file);
-    }
   };
 
   return (
@@ -229,22 +183,57 @@ export default function Settings() {
             <h3 className="text-lg font-medium text-gray-900 mb-4">Notification Sounds</h3>
             
             <div className="space-y-4">
-              {/* Sound Type Selection */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">
-                  Notification Sound Settings
-                </label>
+              <div className="flex items-center">
+                <input
+                  id="defaultSound"
+                  type="checkbox"
+                  checked={localSettings.notificationSounds.default}
+                </div>
+              )}
+              
+              <p className="text-sm text-gray-600 mt-1">
+                Upload a custom audio file for notifications (MP3, WAV, etc.)
+              </p>
+            </div>
+
+            {/* Custom Sound Upload and Management */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Custom Notification Sound
+              </label>
+              
+              {localSettings.notificationSounds.custom ? (
                 <div className="space-y-3">
-                  <div className="flex items-center">
-                    <input
-                      id="defaultSound"
-                      type="checkbox"
-                      checked={localSettings.notificationSounds.default}
-                      onChange={(e) => handleNotificationSoundChange('default', e.target.checked)}
-                      className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-2 focus:ring-blue-500"
-                    />
-                    <label htmlFor="defaultSound" className="ml-2 text-sm text-gray-700">
-                      Enable default notification sound
+                  <div className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                    <div className="flex items-center space-x-2">
+                      <Volume2 className="w-4 h-4 text-gray-600" />
+                      <span className="text-sm text-gray-700">Custom sound uploaded</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => {
+                          if (window.confirm('Are you sure you want to remove the custom notification sound?')) {
+                            handleNotificationSoundChange('custom', '');
+                          }
+                        }}
+                        className="flex items-center px-3 py-1 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 transition-colors duration-200"
+                      >
+                        <Trash2 className="w-4 h-4 mr-1" />
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center space-x-3">
+                    <label className="flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 cursor-pointer transition-colors duration-200">
+                      <Upload className="w-4 h-4 mr-2" />
+                      Replace Sound
+                      <input
+                        type="file"
+                        accept="audio/*"
+                        onChange={handleCustomSoundUpload}
+                        className="hidden"
+                      />
                     </label>
                   </div>
                 </div>
@@ -255,47 +244,8 @@ export default function Settings() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Custom Notification Sound
                 </label>
-                
-                {localSettings.notificationSounds.custom ? (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-lg">
-                      <div className="flex items-center space-x-2">
-                        <Volume2 className="w-4 h-4 text-gray-600" />
-                        <span className="text-sm text-gray-700">Custom sound uploaded</span>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <button
-                          onClick={playTestSound}
-                          className="flex items-center px-3 py-1 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors duration-200"
-                        >
-                          <Play className="w-4 h-4 mr-1" />
-                          Test
-                        </button>
-                        <button
-                          onClick={removeCustomSound}
-                          className="flex items-center px-3 py-1 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 transition-colors duration-200"
-                        >
-                          <Trash2 className="w-4 h-4 mr-1" />
-                          Remove
-                        </button>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center space-x-3">
-                      <label className="flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 cursor-pointer transition-colors duration-200">
-                        <Upload className="w-4 h-4 mr-2" />
-                        Replace Sound
-                        <input
-                          type="file"
-                          accept="audio/*"
-                          onChange={handleCustomSoundUpload}
-                          className="hidden"
-                        />
-                      </label>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex items-center space-x-3">
+              ) : (
+                <div className="flex items-center space-x-3">
                   <label className="flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 cursor-pointer transition-colors duration-200">
                     <Upload className="w-4 h-4 mr-2" />
                     Upload Sound
